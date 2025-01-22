@@ -1,7 +1,5 @@
-```
 import React from "react";
-import parse from "html-react-parser";
-import { domToReact } from "html-react-parser";
+import parse, { domToReact } from "html-react-parser";
 
 function sliceHtml(html, maxLength) {
   let charCount = 0;
@@ -11,7 +9,7 @@ function sliceHtml(html, maxLength) {
     if (charCount >= maxLength) return;
 
     if (typeof node === "string") {
-      // Slice the visible text and add to the result
+      // Handle text content
       const remaining = maxLength - charCount;
       const visibleText = node.slice(0, remaining);
       charCount += visibleText.length;
@@ -22,9 +20,12 @@ function sliceHtml(html, maxLength) {
         .map(([key, value]) => ` ${key}="${value}"`)
         .join("")}>`;
 
-      // Traverse its children
+      // Process child nodes recursively
       if (node.children && Array.isArray(node.children)) {
-        node.children.forEach(traverse);
+        for (const child of node.children) {
+          traverse(child);
+          if (charCount >= maxLength) break; // Stop when maxLength is reached
+        }
       }
 
       // Close the tag
@@ -32,10 +33,14 @@ function sliceHtml(html, maxLength) {
     }
   }
 
+  // Parse the HTML into a tree structure
   const htmlTree = parse(html, { replace: domToReact });
+
   if (Array.isArray(htmlTree)) {
+    // Handle multiple root nodes
     htmlTree.forEach(traverse);
   } else {
+    // Handle a single root node
     traverse(htmlTree);
   }
 
@@ -47,7 +52,7 @@ const htmlInput = "<p>This is <strong>bold</strong> and <em>italic</em> text.</p
 const maxLength = 10;
 
 const resultHtml = sliceHtml(htmlInput, maxLength);
-console.log(resultHtml); // "<p>This is <strong>bo</strong></p>"
+console.log(resultHtml); // Expected: "<p>This is <strong>bo</strong></p>"
 
 function App() {
   return <div>{parse(resultHtml)}</div>;
