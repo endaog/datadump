@@ -30,3 +30,23 @@ function sliceHtml(html, maxLength) {
       if (charCount >= maxLength) break;
     }
   }
+
+  const htmlTree = parse(html, { replace: domToReact });
+  traverse(htmlTree);
+
+  // Construct the final HTML from the stack
+  return slicedHtml + stack.reverse().join("");
+}
+
+// Example usage
+const htmlInput = "<p>This is <strong>bold</strong> and <em>italic</em> text.</p>";
+const maxLength = 10;
+
+const resultHtml = sliceHtml(htmlInput, maxLength);
+console.log(resultHtml); // "<p>This is <strong>bo</strong></p>"
+
+function App() {
+  return <div>{parse(resultHtml)}</div>;
+}
+
+export default App;
