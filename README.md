@@ -4,38 +4,42 @@ import parse from "html-react-parser";
 import { domToReact } from "html-react-parser";
 
 function sliceHtml(html, maxLength) {
-  const stack = [];
   let charCount = 0;
   let slicedHtml = "";
 
-  function traverse(nodes) {
-    for (const node of nodes) {
-      if (typeof node === "string") {
-        const remaining = maxLength - charCount;
-        if (remaining <= 0) break;
+  function traverse(node) {
+    if (charCount >= maxLength) return;
 
-        const visibleText = node.slice(0, remaining);
-        charCount += visibleText.length;
-        slicedHtml += visibleText;
+    if (typeof node === "string") {
+      // Slice the visible text and add to the result
+      const remaining = maxLength - charCount;
+      const visibleText = node.slice(0, remaining);
+      charCount += visibleText.length;
+      slicedHtml += visibleText;
+    } else if (node && typeof node === "object" && node.type === "tag") {
+      // Open the tag
+      slicedHtml += `<${node.name}${Object.entries(node.attribs || {})
+        .map(([key, value]) => ` ${key}="${value}"`)
+        .join("")}>`;
 
-        if (charCount >= maxLength) break;
-      } else if (node.type === "tag") {
-        stack.push(`<${node.name}${Object.entries(node.attribs)
-          .map(([key, value]) => ` ${key}="${value}"`)
-          .join("")}>`);
-        traverse(node.children);
-        stack.push(`</${node.name}>`);
+      // Traverse its children
+      if (node.children && Array.isArray(node.children)) {
+        node.children.forEach(traverse);
       }
 
-      if (charCount >= maxLength) break;
+      // Close the tag
+      slicedHtml += `</${node.name}>`;
     }
   }
 
   const htmlTree = parse(html, { replace: domToReact });
-  traverse(htmlTree);
+  if (Array.isArray(htmlTree)) {
+    htmlTree.forEach(traverse);
+  } else {
+    traverse(htmlTree);
+  }
 
-  // Construct the final HTML from the stack
-  return slicedHtml + stack.reverse().join("");
+  return slicedHtml;
 }
 
 // Example usage
