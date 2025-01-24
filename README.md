@@ -1,62 +1,36 @@
 ```
-import React from "react";
-import parse, { domToReact } from "html-react-parser";
+import React, { useState } from "react";
 
-function sliceHtml(html, maxLength) {
-  let charCount = 0;
-  let slicedHtml = "";
+const MyComponent = () => {
+  const [data, setData] = useState(null);
 
-  function traverse(node) {
-    if (charCount >= maxLength) return;
+  const fetchData = async () => {
+    try {
+      const response = await fetch("/api/some-endpoint"); // Replace with your API endpoint
+      if (!response.ok) throw new Error("Error fetching data");
 
-    if (typeof node === "string") {
-      // Handle text content
-      const remaining = maxLength - charCount;
-      const visibleText = node.slice(0, remaining);
-      charCount += visibleText.length;
-      slicedHtml += visibleText;
-    } else if (node && typeof node === "object" && node.type === "tag") {
-      // Open the tag
-      slicedHtml += `<${node.name}${Object.entries(node.attribs || {})
-        .map(([key, value]) => ` ${key}="${value}"`)
-        .join("")}>`;
+      const result = await response.json();
+      setData(result);
 
-      // Process child nodes recursively
-      if (node.children && Array.isArray(node.children)) {
-        for (const child of node.children) {
-          traverse(child);
-          if (charCount >= maxLength) break; // Stop when maxLength is reached
-        }
-      }
-
-      // Close the tag
-      slicedHtml += `</${node.name}>`;
+      // Perform some other action after receiving the data
+      console.log("Data received:", result);
+      someOtherAction(result);
+    } catch (error) {
+      console.error("API Error:", error);
     }
-  }
+  };
 
-  // Parse the HTML into a tree structure
-  const htmlTree = parse(html, { replace: domToReact });
+  const someOtherAction = (data) => {
+    console.log("Doing something else with the data:", data);
+    // Your other logic here
+  };
 
-  if (Array.isArray(htmlTree)) {
-    // Handle multiple root nodes
-    htmlTree.forEach(traverse);
-  } else {
-    // Handle a single root node
-    traverse(htmlTree);
-  }
+  return (
+    <div>
+      <button onClick={fetchData}>Fetch Data</button>
+      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
+    </div>
+  );
+};
 
-  return slicedHtml;
-}
-
-// Example usage
-const htmlInput = "<p>This is <strong>bold</strong> and <em>italic</em> text.</p>";
-const maxLength = 10;
-
-const resultHtml = sliceHtml(htmlInput, maxLength);
-console.log(resultHtml); // Expected: "<p>This is <strong>bo</strong></p>"
-
-function App() {
-  return <div>{parse(resultHtml)}</div>;
-}
-
-export default App;
+export default MyComponent;
