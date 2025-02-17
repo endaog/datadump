@@ -1,76 +1,104 @@
 ```
-export function hasWebChat(pathname: string, pathWhiteList: string[] = []) {
-    const pathnameWithoutQuery = pathname.split('?')[0];
-    const pathSections = pathWhiteList
-        .map((path) => path.split('/'))
-        .map((path) => path.filter((v, i) => i !== 0 && v !== ''));
-    const pathnameSections =
-        pathnameWithoutQuery.split('?')[0].lastIndexOf('/') !== -1
-            ? pathnameWithoutQuery.split('/').filter((v, i) => i !== 0 && v !== '')
-            : [];
+import { post } from '@bge-website/api';
+import { getJWTToken, getRefreshToken, getUserRef, isTokenExpired, saveJWTToken } from '@bge-website/utils-token';
 
-    return pathSections
-        .map((path) => {
-            const isMatch = path
-                .map((section, index) => {
-                    const pathNameSection = pathnameSections[index];
-                    if (section === pathNameSection) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                })
-                .reduce((accumulator, currentValue) => {
-                    return accumulator === true && currentValue === true;
-                }, true);
-            return isMatch;
-        })
-        .reduce((accumulator, currentValue) => {
-            return accumulator === true || currentValue === true;
-        }, false);
+export interface User {
+	username: string;
+	password: string;
 }
 
+export const submitLogin = (user: User, apiKey: string): Promise<Response> => {
+	return post('/api/auth/token', user, { 'X-API-Key': apiKey });
+};
 
-whitelist: [
- 					'/register',
- 					'/sign-in',
- 					'/services/book/',
- 					'/join-now/',
- 				]
+export const submitMybgeAdminLogin = (mybgeToken: string): Promise<Response> => {
+	return post('/api/user/admin', { temporaryToken: mybgeToken });
+};
 
+export const submitRefreshToken = (currentRefreshToken: string | null): Promise<Response> => {
+	return post('/api/auth/refresh-token', {
+		refreshToken: currentRefreshToken,
+	});
+};
+/* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
+export const refreshToken = (): Promise<any> => {
+	const currentRefreshToken = getRefreshToken();
+	return new Promise((resolve, reject) => {
+		if (!currentRefreshToken) {
+			reject('no refresh token in local storage');
+		}
+		submitRefreshToken(currentRefreshToken)
+			.then((response: any) => {
+				if (response.status === 200) {
+					return response.json();
+				} else {
+					reject('Error with token refresh');
+					return;
+				}
+			})
+			.then((result) => {
+				saveJWTToken(result);
+				resolve(result);
+				return;
+			})
+			.catch(() => {
+				reject('Error with token refresh');
+			});
+	});
+};
 
-import { hasWebChat } from './yourModule'; // Adjust the import as necessary
+export const getAccessToken = (): Promise<string | undefined> => {
+	return new Promise((resolve) => {
+		const accessToken = getJWTToken();
+		if (!accessToken) {
+			resolve(undefined);
+			return;
+		}
+		isTokenExpired()
+			.then((expired) => {
+				if (expired) {
+					return refreshToken();
+				} else {
+					resolve(accessToken);
+					return;
+				}
+			})
+			.then((value) => {
+				if (value) {
+					resolve(value.accessToken);
+				}
+				return;
+			})
+			.catch(() => {
+				resolve(undefined);
+			});
+	});
+};
 
-describe('hasWebChat', () => {
-    test('returns true when pathname matches an entry in pathWhiteList', () => {
-        expect(hasWebChat('/home/chat', ['/home/chat'])).toBe(true);
-    });
-
-    test('returns false when pathname does not match any entry in pathWhiteList', () => {
-        expect(hasWebChat('/home/about', ['/home/chat'])).toBe(false);
-    });
-
-    test('returns true when pathname matches a nested path in pathWhiteList', () => {
-        expect(hasWebChat('/home/chat/support', ['/home/chat/support'])).toBe(true);
-    });
-
-    test('returns false when pathname has extra segments not in pathWhiteList', () => {
-        expect(hasWebChat('/home/chat/support/extra', ['/home/chat/support'])).toBe(false);
-    });
-
-    test('returns true when pathname matches without query parameters', () => {
-        expect(hasWebChat('/home/chat?user=123', ['/home/chat'])).toBe(true);
-    });
-
-    test('returns false for an empty whitelist', () => {
-        expect(hasWebChat('/home/chat', [])).toBe(false);
-    });
-
-    test('returns false when pathname is root but whitelist contains subpaths', () => {
-        expect(hasWebChat('/', ['/home/chat'])).toBe(false);
-    });
-
-    test('returns true when multiple paths exist and one matches', () => {
-        expect(hasWebChat('/home/chat', ['/home/about', '/home/chat'])).toBe(true);
-    });
-});
+export const getUserReference = (): Promise<string | undefined> => {
+	return new Promise((resolve) => {
+		const userReference = getUserRef();
+		if (!userReference) {
+			resolve(undefined);
+			return;
+		}
+		isTokenExpired()
+			.then((expired) => {
+				if (expired) {
+					return refreshToken();
+				} else {
+					resolve(userReference);
+					return;
+				}
+			})
+			.then((value) => {
+				if (value) {
+					resolve(value.ref);
+				}
+				return;
+			})
+			.catch(() => {
+				resolve(undefined);
+			});
+	});
+};
