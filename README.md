@@ -102,3 +102,50 @@ export const getUserReference = (): Promise<string | undefined> => {
 			});
 	});
 };
+
+
+import { getUserReference } from '../path-to-your-file';
+import { getUserRef, isTokenExpired } from '@bge-website/utils-token';
+import { refreshToken } from '../path-to-refresh-token';
+
+jest.mock('@bge-website/utils-token', () => ({
+  getUserRef: jest.fn(),
+  isTokenExpired: jest.fn()
+}));
+
+jest.mock('../path-to-refresh-token', () => ({
+  refreshToken: jest.fn()
+}));
+
+describe('getUserReference', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return undefined if user reference is not found', async () => {
+    getUserRef.mockReturnValue(undefined);
+    await expect(getUserReference()).resolves.toBeUndefined();
+  });
+
+  it('should return user reference if token is not expired', async () => {
+    getUserRef.mockReturnValue('user-ref-123');
+    isTokenExpired.mockResolvedValue(false);
+    await expect(getUserReference()).resolves.toBe('user-ref-123');
+  });
+
+  it('should refresh token if expired and return new reference', async () => {
+    getUserRef.mockReturnValue('user-ref-123');
+    isTokenExpired.mockResolvedValue(true);
+    refreshToken.mockResolvedValue({ ref: 'new-user-ref-456' });
+
+    await expect(getUserReference()).resolves.toBe('new-user-ref-456');
+  });
+
+  it('should return undefined if token refresh fails', async () => {
+    getUserRef.mockReturnValue('user-ref-123');
+    isTokenExpired.mockResolvedValue(true);
+    refreshToken.mockRejectedValue(new Error('Refresh failed'));
+
+    await expect(getUserReference()).resolves.toBeUndefined();
+  });
+});
